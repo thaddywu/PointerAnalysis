@@ -169,13 +169,15 @@ class Anderson {
 		for (GetRelation gr: getMap.get(a))
 			updateNewEdge(gr.x, NameManager.getHeapIdentifier(heap, gr.field));
 	}
-	static void updateAllCall(String from, Integer heap) {
+	static void updateAllCall(String from, Integer heap) throws Exception {
 		if (!callMap.containsKey(from)) return;
 		if (!WholeProgramTransformer.Heap2Class.containsKey(heap)) return ;
 		SootClass sc = WholeProgramTransformer.Heap2Class.get(heap);
 		for (CallRelation cr: callMap.get(from)) {
 			SootMethod sm = PolyManager.getVirtualMethod(sc, cr.sm);
 			if (sm == null) continue ;
+
+			WholeProgramTransformer.buildCFG(sm, cr.ctx);
 
 			passSingleton(heap, NameManager.getThisIdentifier(sm, cr.ctx));
 
@@ -189,7 +191,7 @@ class Anderson {
 				updateNewEdge(NameManager.getReturnIdentifier(sm, cr.ctx), cr.retvar);
 		}
 	}
-	static void run() {
+	static void run() throws Exception {
 		while (!queue.isEmpty()) {
 			QueueNode qn = queue.remove();
 			// System.out.println(qn.node + " " + qn.heap);

@@ -65,7 +65,7 @@ public class WholeProgramTransformer extends SceneTransformer {
 	static Map< Integer, Integer > Heap2Alloc = new TreeMap<>();
 	static Map< Integer, TreeSet<String> > queries = new TreeMap<>();
 	
-	static Integer hashMod = 13;
+	static Integer hashMod = 133;
 	static Integer contextId = 0;
 	static Integer allocId = -1;
 	static Integer heapId = 0;
@@ -78,10 +78,16 @@ public class WholeProgramTransformer extends SceneTransformer {
 		return true;
 	}
 	
-	public void buildCFG(SootMethod sm, int smctx) throws Exception {
+	static TreeSet<String> cfgBuilt = new TreeSet<>();
+	static void buildCFG(SootMethod sm, int smctx) throws Exception {
 		/* Inter procedural pointer analysis */
 		if (!sm.hasActiveBody()) return ;
 		if (!shouldAnalysis(sm)) return ;
+		
+		String cfgName = sm.toString() + smctx;
+		if (cfgBuilt.contains(cfgName)) return ;
+		cfgBuilt.add(cfgName);
+
 		// System.out.println();
 		// System.out.println(sm);
 		for (Unit u : sm.getActiveBody().getUnits()) {
@@ -224,8 +230,9 @@ public class WholeProgramTransformer extends SceneTransformer {
 		
 		while (qr.hasNext()) {
 			SootMethod sm = qr.next().method();
-			for (int i = 0; i < hashMod; i++)
-				buildCFG(sm, i);
+			// for (int i = 0; i < hashMod; i++)
+			//	buildCFG(sm, i);
+			buildCFG(sm, 0);
 		}
 		Anderson.run();
 		return this.generateOutput();
@@ -292,7 +299,7 @@ public class WholeProgramTransformer extends SceneTransformer {
 			answer = this.fancyTransform();
 		}
 		catch (Exception e) {
-			// answer = this.naiveTransform();
+			answer = this.naiveTransform();
 			// answer = "";
 			e.printStackTrace();
 		}
