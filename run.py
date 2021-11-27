@@ -76,12 +76,14 @@ def compare():
                 d[int(test_id)] = list(map(int, alloc_id_str.strip().split()))
         return d
 
+    compare_file = open('compare_result.txt', 'w', encoding='utf-8')
     for class_file in classes:
         my_result_file = os.path.join('myResults', class_file + '.txt')
         correct_result_file = os.path.join('correctResults',
                                            class_file + '.txt')
 
         print(f'----------compare test.{class_file}')
+        compare_file.write(f'----------compare test.{class_file}\n')
         my_res = file2dict(my_result_file)
         ground_truth = file2dict(correct_result_file)
         unsound = False
@@ -95,17 +97,21 @@ def compare():
 
         if unsound:
             print("Unsound")
+            compare_file.write("Unsound\n")
         else:
             ground_truth_cnt = len(sum(ground_truth.values(), []))
             my_res_cnt = len(sum(my_res.values(), []))
             if my_res_cnt == 0:
                 print("Precision=1")
+                compare_file.write("Precision=1\n")
             else:
                 print("Precision={:.4f}".format(ground_truth_cnt / my_res_cnt))
+                compare_file.write("Precision={:.4f}\n".format(ground_truth_cnt / my_res_cnt))
         print('----------End\n')
+        compare_file.write('----------End\n\n')
 
 
-generate_class_file()
-build()
-run_analysis()
+# generate_class_file()
+# build()
+# run_analysis()
 compare()

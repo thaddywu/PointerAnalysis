@@ -3,7 +3,7 @@ sootOutput/*
 result.txt
 analyzer.jar
 myResults/*
-
+compare_result.txt
 
 ### IntelliJ IDEA ###
 .idea
