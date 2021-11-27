@@ -9,18 +9,21 @@ import java.util.LinkedList;
 import java.util.Queue;
 import java.util.TreeMap;
 import java.lang.Comparable;
+import soot.SootMethod;
+import soot.SootClass;
 
 import soot.Local;
 
 class CallRelation implements Comparable {
 	public String retvar;
 	public String object;
-	public String method;
+	public SootMethod sm;
 	public List<String> args;
+	public Integer ctx;
 	public String key;
-	CallRelation(String retvar, String object, String method, List<String> args) {
-		this.retvar = retvar; this.object = object; this.method = method; this.args = args ;
-		this.key = this.retvar + this.object + this.method + this.args;
+	CallRelation(String retvar, String object, SootMethod sm, List<String> args, Integer ctx) {
+		this.retvar = retvar; this.object = object; this.sm = sm; this.args = args ; this.ctx = ctx;
+		this.key = this.retvar + this.object + this.sm + this.args + this.ctx;
 	}
 	@Override
 	public int compareTo(Object o) {
@@ -53,7 +56,7 @@ class GetRelation implements Comparable {
 	public String field;
 	public String key;
 	GetRelation(String x, String field)
-		{this.x = x; this.field = field; this.key = this.x + this.field; }
+		{ this.x = x; this.field = field; this.key = this.x + this.field; }
 	@Override
 	public int compareTo(Object o) {
 		return this.key.compareTo(((GetRelation) o).key);
@@ -107,6 +110,7 @@ class Anderson {
 		if (!edgeMap.containsKey(u))
 			edgeMap.put(u, new TreeSet<String>());
 		if (edgeMap.get(u).contains(v)) return false;
+		// System.out.println(u + "->" + v);
 		edgeMap.get(u).add(v);
 		return true;
 	}
@@ -116,6 +120,7 @@ class Anderson {
 			putMap.put(x, new TreeSet<PutRelation>());
 		if (putMap.get(x).contains(pr)) return false;
 		putMap.get(x).add(pr);
+		// System.out.println("put:" + x + "." + f + "->" + a);
 		return true;
 	}
 	static boolean newGet(String a, String x, String f) {
@@ -124,15 +129,26 @@ class Anderson {
 			getMap.put(a, new TreeSet<GetRelation>());
 		if (getMap.get(a).contains(gr)) return false;
 		getMap.get(a).add(gr);
+		// System.out.println("get:" + x + "->" + a + "." + f);
 		return true;
 	}
-	static boolean newCall(String a, String o, String f, List<String> args) {
-		CallRelation cr = new CallRelation(a, o, f, args);
+	static boolean newCall(String a, String o, SootMethod f, List<String> args, Integer ctx) {
+		CallRelation cr = new CallRelation(a, o, f, args, ctx);
 		if (!callMap.containsKey(o))
 			callMap.put(o, new TreeSet<CallRelation>());
 		if (callMap.get(o).contains(cr)) return false;
 		callMap.get(o).add(cr);
 		return true;
+	}
+	static void newStaticCall(String a, SootMethod sm, List<String> args, Integer ctx) {
+		int index = 0;
+		for (String arg: args) {
+			if (arg != null)
+				updateNewEdge(arg, NameManager.getParamIdentifier(sm, index, ctx));
+			index += 1;
+		}
+		if (a != null)
+			updateNewEdge(NameManager.getReturnIdentifier(sm, ctx), a);
 	}
 
 	static void updateNewEdge(String u, String v) {
@@ -155,24 +171,28 @@ class Anderson {
 	}
 	static void updateAllCall(String from, Integer heap) {
 		if (!callMap.containsKey(from)) return;
+		if (!WholeProgramTransformer.Heap2Class.containsKey(heap)) return ;
+		SootClass sc = WholeProgramTransformer.Heap2Class.get(heap);
 		for (CallRelation cr: callMap.get(from)) {
-			String sig = "1";
-			assert (false);
-			passSingleton(heap, NameManager.getThisIdentifier(sig));
+			SootMethod sm = PolyManager.getVirtualMethod(sc, cr.sm);
+			if (sm == null) continue ;
+
+			passSingleton(heap, NameManager.getThisIdentifier(sm, cr.ctx));
 
 			int index = 0;
 			for (String arg: cr.args) {
 				if (arg != null)
-					updateNewEdge(arg, NameManager.getParamIdentifier(sig, index));
+					updateNewEdge(arg, NameManager.getParamIdentifier(sm, index, cr.ctx));
 				index += 1;
 			}
 			if (cr.retvar != null)
-				updateNewEdge(NameManager.getReturnIdentifier(sig), cr.retvar);
+				updateNewEdge(NameManager.getReturnIdentifier(sm, cr.ctx), cr.retvar);
 		}
 	}
 	static void run() {
 		while (!queue.isEmpty()) {
 			QueueNode qn = queue.remove();
+			// System.out.println(qn.node + " " + qn.heap);
 			updateAllCall(qn.node, qn.heap);
 			updateAllPut(qn.node, qn.heap);
 			updateAllGet(qn.node, qn.heap);

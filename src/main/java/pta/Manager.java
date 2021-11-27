@@ -41,44 +41,39 @@ import soot.jimple.toolkits.callgraph.ReachableMethods;
 import soot.util.queue.QueueReader;
 
 class NameManager {
-	static TAI getIndetifier(SootMethod sm, Value v) {
+	static TAI getIndetifier(SootMethod sm, Value v, Integer ctx) throws Exception {
 		TAI identifier;
 		if (v instanceof Local)
-			identifier = new TAI(((Local) v).getName() + "@" + sm.getSignature(), null);
+			identifier = new TAI(((Local) v).getName() + "@" + sm.getSignature() + "#" + ctx.toString(), null);
 		else if (v instanceof ParameterRef)
-			identifier = new TAI("$param" + ((ParameterRef) v).getIndex() + "@" + sm.getSignature(), null);
+			identifier = new TAI("$param" + ((ParameterRef) v).getIndex() + "@" + sm.getSignature() + "#" + ctx.toString(), null);
         else if (v instanceof ThisRef)
-            identifier = new TAI("$this" + "@" + sm.getSignature(), null);
+            identifier = new TAI("$this" + "@" + sm.getSignature() + "#" + ctx.toString(), null);
         else if (v instanceof ArrayRef) {
             Value base = ((ArrayRef) v).getBase();
-            assert (base instanceof Local);
-            identifier = new TAI(((Local) base).getName() + "@" + sm.getSignature() , "(ArrayItem)");
+            Myassert.myassert (base instanceof Local);
+            identifier = new TAI(((Local) base).getName() + "@" + sm.getSignature() + "#" + ctx.toString() , "(ArrayItem)");
         }
 		else if (v instanceof StaticFieldRef) {
-			identifier = new TAI(((StaticFieldRef) v).getField().getName(), null);
-            /*
-			String fn = ((StaticFieldRef) v).getField().getName();
-            System.out.println(((StaticFieldRef) v).getField());
-			System.out.println(sm.getDeclaringClass());
-			System.out.println(PolyManager.getFieldDecl(sm.getDeclaringClass(), fn));
-			identifier = new TAI("static$" + fn + "@" + PolyManager.getFieldDecl(sm.getDeclaringClass(), fn).getName(), null);
-            */
+			SootField sf = ((StaticFieldRef) v).getField();
+			identifier = new TAI(sf.getName() + "@" + sf.getDeclaringClass(), null);
 		}
 		else if (v instanceof InstanceFieldRef) {
 			InstanceFieldRef iv = (InstanceFieldRef) v;
-			assert( iv.getBase() instanceof Local);
-			identifier = new TAI(((Local) iv.getBase()).getName() + "@" + sm.getSignature(), iv.getField().getName());
+			SootField sf = iv.getField();
+			Myassert.myassert (!sf.isStatic() && iv.getBase() instanceof Local);
+			identifier = new TAI(((Local) iv.getBase()).getName() + "@" + sm.getSignature() + "#" + ctx.toString(), iv.getField().getName());
 		}
 		else
 			identifier = new TAI(null, null);
 		return identifier;
 	}
-	static String getThisIdentifier(String sig)
-		{ return "$this@" + sig; }
-	static String getParamIdentifier(String sig, Integer index)
-		{ return "$param" + index + "@" + sig; }
-	static String getReturnIdentifier(String sig) 
-		{ return "$ret@" + sig;	}
+	static String getThisIdentifier(SootMethod sm, Integer ctx)
+		{ return "$this@" + sm.getSignature() + "#" + ctx.toString(); }
+	static String getParamIdentifier(SootMethod sm, Integer index, Integer ctx)
+		{ return "$param" + index + "@" + sm.getSignature() + "#" + ctx.toString(); }
+	static String getReturnIdentifier(SootMethod sm, Integer ctx) 
+		{ return "$ret@" + sm.getSignature() + "#" + ctx.toString();	}
 	static String getHeapIdentifier(Integer heap, String field)
 		{ return heap + "." + field; }
 	static String getArrayItemIdentifier(Integer heap)
@@ -87,29 +82,28 @@ class NameManager {
 
 class PolyManager {
 	/* locate method, when polymorphism exists */
-	static Map<String, SootClass> methodDeclRecord = new TreeMap<>() ;
-	static SootClass getMethodDecl(SootClass sm, String subsig) {
-		String token = sm.toString() + subsig;
+	static Map<String, SootMethod> methodDeclRecord = new TreeMap<>() ;
+	static SootMethod getVirtualMethod(SootClass sc, SootMethod sm) {
+		/*
+		String token = sm.toString() + sm.getSubSignature();
 		if (methodDeclRecord.containsKey(token))
 			return methodDeclRecord.get(token);
+		*/
 		
-		SootClass mi = sm;
-		while (mi != null && mi.getMethodUnsafe(subsig) == null)
+		String sig = sm.getSubSignature();
+		SootClass mi = sc;
+		while (mi != null && mi.getMethodUnsafe(sig) == null)
 			mi = mi.getSuperclassUnsafe();
-		methodDeclRecord.put(token, mi);
-		return mi;
+		// methodDeclRecord.put(token, mi);
+		SootMethod ret = null;
+		if (mi != null) ret = mi.getMethodUnsafe(sig);
+		return ret;
 	}
-	/* locate method, when polymorphism exists */
-	static Map<String, SootClass> staticDeclRecord = new TreeMap<>() ;
-	static SootClass getFieldDecl(SootClass sm, String sf) {
-		String token = sm.toString() + sf;
-		if (staticDeclRecord.containsKey(token))
-			return staticDeclRecord.get(token);
-		
-		SootClass mi = sm;
-		while (mi != null && mi.getFieldByNameUnsafe(sf) == null)
-			mi = mi.getSuperclassUnsafe();
-            staticDeclRecord.put(token, mi);
-		return mi;
+}
+
+class Myassert {
+	static void myassert(boolean condition) throws Exception {
+		// if (!condition) assert (false);
+		if (!condition) throw new Exception("Asseation failed...");
 	}
 }
