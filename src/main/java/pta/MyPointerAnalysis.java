@@ -9,12 +9,12 @@ public class MyPointerAnalysis {
 	
 	// args[0] = "/root/workspace/code"
 	// args[1] = "test.Hello"	
-	public static void main(String[] args) {		
-		//String jdkLibPath = System.getProperty("java.home")+"/lib/"; // "/usr/lib/jvm/java-7-openjdk-amd64/jre/lib/";
+	static String entryClass ;
+	public static void main(String[] args) {	
+		entryClass = args[1];
 		String classpath = args[0] 
 				+ File.pathSeparator + args[0] + File.separator + "rt.jar"
-				+ File.pathSeparator + args[0] + File.separator + "jce.jar";	
-		System.out.println(classpath);
+				+ File.pathSeparator + args[0] + File.separator + "jce.jar";
 		PackManager.v().getPack("wjtp").add(new Transform("wjtp.mypta", new WholeProgramTransformer()));
 		soot.Main.main(new String[] {
 			"-w",

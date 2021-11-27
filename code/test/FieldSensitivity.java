@@ -14,6 +14,24 @@ import benchmark.objects.B;
  * 
  * @description Field Sensitivity without static method
  */
+
+class Pack {
+  Pack(int i) {item = i;}
+  int item;
+}
+
+class father {
+  int a = 0;
+  static int b = 9;
+  public int multi(int a) { return a; }
+  public int multi(int a, int b) { return a + b; }
+  public int get() { return this.multi(a) + this.multi(a,b); }
+}
+class son extends father {
+  Pack pack;
+  public int get() { return b; }
+}
+
 public class FieldSensitivity {
 
   public FieldSensitivity() {}
@@ -53,13 +71,23 @@ public class FieldSensitivity {
   }
   
 
-  public static void main(String[] args) {
+  public void test3(int a) {
+    father x = new son();
+    int r = x.get();
+  }
+  
 
-    BenchmarkN.alloc(9);
+  public static void main(String[] args) {
+    // int a[] = new int[10];
+    // int i =7;
+    // a[i-1]=a[i+2];
+    // BenchmarkN.alloc(9);
+    // son x = new son();
+    // x.pack = new Pack(5);
     FieldSensitivity fs2 = new FieldSensitivity();
-    fs2.test();
-    fs2.test2();
-    
+    // fs2.test();
+    // fs2.test2();
+    fs2.test3(77);
   }
 
 }
