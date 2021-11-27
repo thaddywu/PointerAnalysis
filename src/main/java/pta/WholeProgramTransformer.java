@@ -65,7 +65,7 @@ public class WholeProgramTransformer extends SceneTransformer {
 	static Map< Integer, Integer > Heap2Alloc = new TreeMap<>();
 	static Map< Integer, TreeSet<String> > queries = new TreeMap<>();
 	
-	static Integer hashMod = 133;
+	static Integer hashMod = 1;
 	static Integer contextId = 0;
 	static Integer allocId = -1;
 	static Integer heapId = 0;
@@ -182,7 +182,6 @@ public class WholeProgramTransformer extends SceneTransformer {
 					Anderson.newCall(retvar, NameManager.getIndetifier(sm, base, smctx).var, iie.getMethod(), args, ctxId);
 				}
 				
-				// Anderson.newCall(rax, o, m, args); /* need to fill */
 				continue ;
 			}
 
@@ -196,8 +195,10 @@ public class WholeProgramTransformer extends SceneTransformer {
 					Anderson.newGet(lop.var, rop.var, lop.field);
 				else if (rop.hasField()) /* put: a = x.f */
 					Anderson.newPut(lop.var, rop.var, rop.field);
-				else /* a = x */
+				else { /* a = x */
 					Anderson.newEdge(rop.var, lop.var);
+					// Anderson.newEdge(lop.var, rop.var);
+				}
 				continue ;
 			}
 			if (u instanceof ReturnVoidStmt)

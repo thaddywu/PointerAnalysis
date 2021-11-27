@@ -26,7 +26,7 @@ classes = [  # Basic Tests
     "FinalTest"
 ]
 
-proj_root = os.path.dirname(__file__)
+proj_root = os.path.dirname(os.path.abspath(__file__))
 os.chdir(proj_root)
 
 
@@ -112,6 +112,6 @@ def compare():
 
 
 # generate_class_file()
-# build()
-# run_analysis()
+build()
+run_analysis()
 compare()

@@ -154,6 +154,10 @@ class Anderson {
 	static void updateNewEdge(String u, String v) {
 		if (newEdge(u, v)) passSet(u, v);
 	}
+	static void updateNewBiEdge(String u, String v) {
+		updateNewEdge(u, v);
+		updateNewEdge(v, u);
+	}
 	static void updateAllEdge(String from, Integer heap) {
 		if (!edgeMap.containsKey(from)) return;
 		for (String to: edgeMap.get(from))
