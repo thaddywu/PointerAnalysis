@@ -4,6 +4,7 @@ import java.io.ObjectInputStream.GetField;
 import java.util.ArrayList;
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.AbstractCollection;
 
 import fj.test.reflect.Name;
 import java_cup.lalr_item;
@@ -39,6 +40,7 @@ import soot.jimple.ReturnStmt;
 import soot.jimple.ReturnVoidStmt;
 import soot.jimple.StaticFieldRef;
 import soot.jimple.ThisRef;
+import soot.jimple.parser.node.ADeclaration;
 import soot.jimple.ParameterRef;
 import soot.jimple.NullConstant;
 import soot.jimple.Constant;
@@ -49,6 +51,12 @@ import soot.util.queue.QueueReader;
 import soot.jimple.toolkits.callgraph.CallGraph;
 import soot.jimple.toolkits.callgraph.Edge;
 
+
+import java.util.concurrent.Callable;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
 
 class TAI { /* Three address representation */
 	public String var;
@@ -65,10 +73,12 @@ public class WholeProgramTransformer extends SceneTransformer {
 	static Map< Integer, Integer > Heap2Alloc = new TreeMap<>();
 	static Map< Integer, TreeSet<String> > queries = new TreeMap<>();
 	
-	static Integer hashMod = 1;
-	static Integer contextId = 0;
+	static Integer hashMod = 197;
+	static Integer globalContextId = 0;
 	static Integer allocId = -1;
 	static Integer heapId = 0;
+
+	static boolean debug = false;
 	
 	static boolean shouldAnalysis(SootMethod sm) {
 		SootClass sc = sm.getDeclaringClass();
@@ -77,8 +87,14 @@ public class WholeProgramTransformer extends SceneTransformer {
 		if (sc.isJavaLibraryClass()) return false;
 		return true;
 	}
+	static boolean isCollections(SootMethod sm) {
+		SootClass sc = sm.getDeclaringClass();
+		String name = sc.getName();
+		return name.startsWith("java.util.") ;
+	}
 	
-	static TreeSet<String> cfgBuilt = new TreeSet<>();
+	static TreeSet<String> cfgBuilt = new TreeSet<>(); /* boolean func to record whether method under some context has been constructed*/
+	static TreeMap<String, Integer> interContext = new TreeMap<>(); /* to allign a func under different contexts with the same callsite ID */
 	static void buildCFG(SootMethod sm, int smctx) throws Exception {
 		/* Inter procedural pointer analysis */
 		if (!sm.hasActiveBody()) return ;
@@ -87,13 +103,15 @@ public class WholeProgramTransformer extends SceneTransformer {
 		String cfgName = sm.toString() + smctx;
 		if (cfgBuilt.contains(cfgName)) return ;
 		cfgBuilt.add(cfgName);
+		Integer contextId = globalContextId ;
+		if (interContext.containsKey(sm.toString()))
+			contextId = interContext.get(sm.toString()) ;
 
-		// System.out.println();
-		// System.out.println(sm);
+		if (debug) System.out.println();
+		if (debug) System.out.println(sm);
 		for (Unit u : sm.getActiveBody().getUnits()) {
-			// System.out.println("\t" + u);
-
-			String sig = sm.getSignature();
+			if (debug) System.out.println("\t" + u);
+			
 			int ctxId = (contextId++) % hashMod;
 
 			if (u instanceof AssignStmt)
@@ -159,6 +177,7 @@ public class WholeProgramTransformer extends SceneTransformer {
 				if (rax != null) retvar = NameManager.getIndetifier(sm, rax, smctx).var;
 
 				Myassert.myassert (!(ie instanceof DynamicInvokeExpr));
+				SootMethod m = ie.getMethod();
 				// System.out.println("\t[Invoke]" + ie + " rax:" + rax);
 				// System.out.println("\t[method]" + m + " " + m.getDeclaringClass());
 				// System.out.println("\t[type]" + (ie instanceof StaticInvokeExpr) + " " + (ie instanceof InstanceInvokeExpr) );
@@ -169,6 +188,23 @@ public class WholeProgramTransformer extends SceneTransformer {
 					if (v instanceof Constant) args.add(null);
 					else if (v instanceof Local) args.add(NameManager.getIndetifier(sm, v, smctx).var);
 					else Myassert.myassert(false);
+				}
+				
+				if ((ie instanceof InstanceInvokeExpr) && isCollections(m)) {
+					InstanceInvokeExpr iie = (InstanceInvokeExpr) ie;
+					Myassert.myassert (iie.getBase() instanceof Local);
+					String base = NameManager.getIndetifier(sm, iie.getBase(), smctx).var;
+
+					// System.out.println("\t[Collection] " + m.getDeclaringClass().getName());
+					for (String arg: args)
+					if (arg != null) {
+						Anderson.newGet(base, arg, NameManager.getCollectionItemField());
+						Anderson.newEdge(arg, base);
+					}
+					if (retvar != null) {
+						Anderson.newPut(retvar, base, NameManager.getCollectionItemField());
+						Anderson.newEdge(base, retvar);
+					}
 				}
 
 				if (ie instanceof StaticInvokeExpr) {
@@ -195,10 +231,8 @@ public class WholeProgramTransformer extends SceneTransformer {
 					Anderson.newGet(lop.var, rop.var, lop.field);
 				else if (rop.hasField()) /* put: a = x.f */
 					Anderson.newPut(lop.var, rop.var, rop.field);
-				else { /* a = x */
+				else /* a = x */
 					Anderson.newEdge(rop.var, lop.var);
-					// Anderson.newEdge(lop.var, rop.var);
-				}
 				continue ;
 			}
 			if (u instanceof ReturnVoidStmt)
@@ -212,6 +246,12 @@ public class WholeProgramTransformer extends SceneTransformer {
 				Anderson.newEdge(retvar.var, NameManager.getReturnIdentifier(sm, smctx));
 			}
 		}
+		
+		if (!interContext.containsKey(sm.toString())) {
+			interContext.put(sm.toString(), globalContextId);
+			globalContextId = contextId;
+		}
+
 	}
 
 	protected String fancyTransform() throws Exception {
@@ -294,6 +334,7 @@ public class WholeProgramTransformer extends SceneTransformer {
 	
 	@Override
 	protected void internalTransform(String arg0, Map<String, String> arg1) {
+
 		String answer;
 		try {
 			// Myassert.myassert (false);

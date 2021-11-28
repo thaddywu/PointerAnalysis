@@ -74,6 +74,7 @@ class QueueNode {
 }
 
 class Anderson {
+	static boolean debug = false;
 	static Queue<QueueNode> queue = new LinkedList<>();
 	static Map< String, TreeSet<String>> edgeMap = new TreeMap<>();
 	static Map< String, TreeSet<PutRelation>> putMap = new TreeMap<>();
@@ -98,7 +99,7 @@ class Anderson {
 		boolean updated = false;
 		for (Integer heap: Var2Heap.get(from))
 		if (!Var2Heap.get(to).contains(heap)) {
-			Var2Heap.get(from).add(heap);
+			Var2Heap.get(to).add(heap);
 			queue.add(new QueueNode(to, heap));
 			updated = true;
 		}
@@ -110,7 +111,7 @@ class Anderson {
 		if (!edgeMap.containsKey(u))
 			edgeMap.put(u, new TreeSet<String>());
 		if (edgeMap.get(u).contains(v)) return false;
-		// System.out.println(u + "->" + v);
+		if (debug) System.out.println(u + "->" + v);
 		edgeMap.get(u).add(v);
 		return true;
 	}
@@ -120,7 +121,7 @@ class Anderson {
 			putMap.put(x, new TreeSet<PutRelation>());
 		if (putMap.get(x).contains(pr)) return false;
 		putMap.get(x).add(pr);
-		// System.out.println("put:" + x + "." + f + "->" + a);
+		if (debug) System.out.println("put:" + x + "." + f + "->" + a);
 		return true;
 	}
 	static boolean newGet(String a, String x, String f) {
@@ -129,7 +130,7 @@ class Anderson {
 			getMap.put(a, new TreeSet<GetRelation>());
 		if (getMap.get(a).contains(gr)) return false;
 		getMap.get(a).add(gr);
-		// System.out.println("get:" + x + "->" + a + "." + f);
+		if (debug) System.out.println("get:" + x + "->" + a + "." + f);
 		return true;
 	}
 	static boolean newCall(String a, String o, SootMethod f, List<String> args, Integer ctx) {
@@ -153,10 +154,6 @@ class Anderson {
 
 	static void updateNewEdge(String u, String v) {
 		if (newEdge(u, v)) passSet(u, v);
-	}
-	static void updateNewBiEdge(String u, String v) {
-		updateNewEdge(u, v);
-		updateNewEdge(v, u);
 	}
 	static void updateAllEdge(String from, Integer heap) {
 		if (!edgeMap.containsKey(from)) return;
@@ -198,7 +195,7 @@ class Anderson {
 	static void run() throws Exception {
 		while (!queue.isEmpty()) {
 			QueueNode qn = queue.remove();
-			// System.out.println(qn.node + " " + qn.heap);
+			if (debug) System.out.println(qn.node + " " + qn.heap);
 			updateAllCall(qn.node, qn.heap);
 			updateAllPut(qn.node, qn.heap);
 			updateAllGet(qn.node, qn.heap);

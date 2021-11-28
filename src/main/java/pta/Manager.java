@@ -39,12 +39,15 @@ import soot.jimple.InstanceFieldRef;
 import soot.jimple.StaticInvokeExpr;
 import soot.jimple.toolkits.callgraph.ReachableMethods;
 import soot.util.queue.QueueReader;
+import soot.jimple.CastExpr;
 
 class NameManager {
 	static TAI getIndetifier(SootMethod sm, Value v, Integer ctx) throws Exception {
 		TAI identifier;
 		if (v instanceof Local)
 			identifier = new TAI(((Local) v).getName() + "@" + sm.getSignature() + "#" + ctx.toString(), null);
+		else if (v instanceof CastExpr)
+			identifier = getIndetifier(sm, ((CastExpr) v).getOp(), ctx);
 		else if (v instanceof ParameterRef)
 			identifier = new TAI("$param" + ((ParameterRef) v).getIndex() + "@" + sm.getSignature() + "#" + ctx.toString(), null);
         else if (v instanceof ThisRef)
@@ -78,6 +81,10 @@ class NameManager {
 		{ return heap + "." + field; }
 	static String getArrayItemIdentifier(Integer heap)
 		{ return getHeapIdentifier(heap, "(ArrayItem)"); }
+	static String getCollectionItemIdentifier(Integer heap)
+		{ return getHeapIdentifier(heap, getCollectionItemField()); }
+	static String getCollectionItemField()
+		{ return "(CollectionItem)"; }
 }
 
 class PolyManager {
