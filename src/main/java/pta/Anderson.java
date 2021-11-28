@@ -66,6 +66,13 @@ class GetRelation implements Comparable {
 		a.field = x
 	*/
 }
+
+class MethodRun {
+	SootMethod sm;
+	Integer ctx;
+	MethodRun(SootMethod sm, Integer ctx)
+		{ this.sm = sm; this.ctx = ctx; }
+}
 class QueueNode {
 	public String node;
 	public Integer heap;
@@ -76,6 +83,8 @@ class QueueNode {
 class Anderson {
 	static boolean debug = false;
 	static Queue<QueueNode> queue = new LinkedList<>();
+	static Queue<MethodRun> mtrun = new LinkedList<>();
+	static TreeSet< String > mtrunSet = new TreeSet<>();
 	static Map< String, TreeSet<String>> edgeMap = new TreeMap<>();
 	static Map< String, TreeSet<PutRelation>> putMap = new TreeMap<>();
 	static Map< String, TreeSet<GetRelation>> getMap = new TreeMap<>();
@@ -141,7 +150,7 @@ class Anderson {
 		callMap.get(o).add(cr);
 		return true;
 	}
-	static void newStaticCall(String a, SootMethod sm, List<String> args, Integer ctx) {
+	static void newStaticCall(String a, SootMethod sm, List<String> args, Integer ctx) throws Exception {
 		int index = 0;
 		for (String arg: args) {
 			if (arg != null)
@@ -150,6 +159,7 @@ class Anderson {
 		}
 		if (a != null)
 			updateNewEdge(NameManager.getReturnIdentifier(sm, ctx), a);
+		newMethodRun(sm, ctx);
 	}
 
 	static void updateNewEdge(String u, String v) {
@@ -178,7 +188,8 @@ class Anderson {
 			SootMethod sm = PolyManager.getVirtualMethod(sc, cr.sm);
 			if (sm == null) continue ;
 
-			WholeProgramTransformer.buildCFG(sm, cr.ctx);
+			// WholeProgramTransformer.buildCFG(sm, cr.ctx);
+			newMethodRun(sm, cr.ctx);
 
 			passSingleton(heap, NameManager.getThisIdentifier(sm, cr.ctx));
 
@@ -192,14 +203,26 @@ class Anderson {
 				updateNewEdge(NameManager.getReturnIdentifier(sm, cr.ctx), cr.retvar);
 		}
 	}
+	static void newMethodRun(SootMethod sm, Integer ctx) {
+		String token = sm.toString() + ctx.toString();
+		if (mtrunSet.contains(token)) return ;
+		mtrunSet.add(token);
+		mtrun.add(new MethodRun(sm, ctx));
+	}
 	static void run() throws Exception {
-		while (!queue.isEmpty()) {
-			QueueNode qn = queue.remove();
-			if (debug) System.out.println(qn.node + " " + qn.heap);
-			updateAllCall(qn.node, qn.heap);
-			updateAllPut(qn.node, qn.heap);
-			updateAllGet(qn.node, qn.heap);
-			updateAllEdge(qn.node, qn.heap);
+		while (!queue.isEmpty() || !mtrun.isEmpty()) {
+			if (!mtrun.isEmpty()) {
+				MethodRun mr = mtrun.remove();
+				WholeProgramTransformer.buildCFG(mr.sm, mr.ctx);
+			}
+			else {
+				QueueNode qn = queue.remove();
+				if (debug) System.out.println(qn.node + " " + qn.heap);
+				updateAllCall(qn.node, qn.heap);
+				updateAllPut(qn.node, qn.heap);
+				updateAllGet(qn.node, qn.heap);
+				updateAllEdge(qn.node, qn.heap);
+			}
 		}
 	}
 }

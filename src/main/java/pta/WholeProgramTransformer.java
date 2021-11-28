@@ -73,7 +73,7 @@ public class WholeProgramTransformer extends SceneTransformer {
 	static Map< Integer, Integer > Heap2Alloc = new TreeMap<>();
 	static Map< Integer, TreeSet<String> > queries = new TreeMap<>();
 	
-	static Integer hashMod = 197;
+	static Integer hashMod = 137;
 	static Integer globalContextId = 0;
 	static Integer allocId = -1;
 	static Integer heapId = 0;
@@ -94,15 +94,13 @@ public class WholeProgramTransformer extends SceneTransformer {
 	}
 	
 	static TreeSet<String> cfgBuilt = new TreeSet<>(); /* boolean func to record whether method under some context has been constructed*/
+
 	static TreeMap<String, Integer> interContext = new TreeMap<>(); /* to allign a func under different contexts with the same callsite ID */
 	static void buildCFG(SootMethod sm, int smctx) throws Exception {
 		/* Inter procedural pointer analysis */
 		if (!sm.hasActiveBody()) return ;
 		if (!shouldAnalysis(sm)) return ;
 		
-		String cfgName = sm.toString() + smctx;
-		if (cfgBuilt.contains(cfgName)) return ;
-		cfgBuilt.add(cfgName);
 		Integer contextId = globalContextId ;
 		if (interContext.containsKey(sm.toString()))
 			contextId = interContext.get(sm.toString()) ;
@@ -111,8 +109,6 @@ public class WholeProgramTransformer extends SceneTransformer {
 		if (debug) System.out.println(sm);
 		for (Unit u : sm.getActiveBody().getUnits()) {
 			if (debug) System.out.println("\t" + u);
-			
-			int ctxId = (contextId++) % hashMod;
 
 			if (u instanceof AssignStmt)
 				Myassert.myassert (u instanceof DefinitionStmt);
@@ -207,6 +203,9 @@ public class WholeProgramTransformer extends SceneTransformer {
 					}
 				}
 
+				
+				int ctxId = (contextId++) % hashMod;
+
 				if (ie instanceof StaticInvokeExpr) {
 					StaticInvokeExpr sie = (StaticInvokeExpr) ie;
 					Anderson.newStaticCall(retvar, sie.getMethod(), args, ctxId);
@@ -273,7 +272,7 @@ public class WholeProgramTransformer extends SceneTransformer {
 			SootMethod sm = qr.next().method();
 			// for (int i = 0; i < hashMod; i++)
 			//	buildCFG(sm, i);
-			buildCFG(sm, 0);
+			Anderson.newMethodRun(sm, 0);
 		}
 		Anderson.run();
 		return this.generateOutput();
